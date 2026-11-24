@@ -10,7 +10,7 @@ export default defineConfig({
     ...(browser === 'firefox' && {
       browser_specific_settings: {
         gecko: {
-          id: 'botleneck@cameronbrooks11.github.io',
+          id: '{c85085e2-6089-4c9c-bf8e-ac59d94d1465}',
           // Nothing leaves the browser.
           data_collection_permissions: { required: ['none'] },
         },
