@@ -76,7 +76,7 @@ export class Session {
 
     for (let turn = 0; turn < maxTurns; turn++) {
       if (this.stopped) return end('stopped');
-      const p = participants[turn % participants.length];
+      const p = participants[turn % participants.length]!;
       let reply: string;
       try {
         reply = clampMessage(await ask(p, message));

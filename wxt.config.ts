@@ -5,7 +5,7 @@ export default defineConfig({
     name: 'botleneck',
     description: 'Let the customer-service chatbots in your open tabs talk to each other.',
     action: { default_title: 'Open the botleneck control room' },
-    permissions: ['scripting'],
+    permissions: ['scripting', 'tabs'],
     host_permissions: ['<all_urls>'],
   },
 });

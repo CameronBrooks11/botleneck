@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>botleneck — control room</title>
+    <style>
+      :root { color-scheme: light dark; font: 15px/1.45 system-ui, sans-serif; }
+      body { max-width: 760px; margin: 2rem auto; padding: 0 1rem; }
+      h1 { margin: 0 0 .25rem; }
+      h1 + p { margin-top: 0; opacity: .7; }
+      h2 { font-size: 1rem; text-transform: uppercase; letter-spacing: .06em; opacity: .7; margin: 1.6rem 0 .5rem; }
+      ul { list-style: none; padding: 0; margin: 0; }
+      li { display: flex; gap: .6rem; align-items: center; padding: .35rem 0; border-bottom: 1px solid #8883; }
+      li .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      li small { opacity: .6; }
+      button { font: inherit; padding: .3rem .8rem; border-radius: 6px; border: 1px solid #8886; background: transparent; cursor: pointer; }
+      button.primary { background: #ff3d7f; color: #fff; border-color: #ff3d7f; }
+      button:disabled { opacity: .4; cursor: default; }
+      textarea, input { font: inherit; padding: .35rem .5rem; border-radius: 6px; border: 1px solid #8886; background: transparent; }
+      textarea { width: 100%; box-sizing: border-box; min-height: 3.5rem; }
+      .row { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; margin-top: .6rem; }
+      .row input { width: 4.5rem; }
+      .empty { opacity: .6; font-style: italic; }
+      #transcript li { display: block; }
+      #transcript b { margin-right: .4rem; }
+      #status { margin-top: .6rem; opacity: .8; }
+    </style>
+  </head>
+  <body>
+    <h1>botleneck</h1>
+    <p>Add two or more tabs with a chatbot, give them something to talk about, and watch.</p>
+
+    <h2>Open tabs</h2>
+    <ul id="tabs"></ul>
+
+    <h2>Participants <small>(in speaking order)</small></h2>
+    <ul id="participants"></ul>
+
+    <h2>Conversation</h2>
+    <textarea id="seed" placeholder="Opening line, sent to the first participant">Hi! What do you recommend?</textarea>
+    <div class="row">
+      <label>Turns <input id="turns" type="number" min="1" max="50" value="10" /></label>
+      <label>Delay (s) <input id="delay" type="number" min="1" max="60" value="3" /></label>
+      <button id="start" class="primary">Start</button>
+      <button id="stop" disabled>Stop</button>
+    </div>
+    <div id="status"></div>
+
+    <h2>Transcript</h2>
+    <ul id="transcript"><li class="empty">Nothing yet.</li></ul>
+
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
