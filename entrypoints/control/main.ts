@@ -95,8 +95,11 @@ browser.runtime.onMessage.addListener((raw, sender) => {
     const frameId = sender.frameId ?? 0;
     const others = bots.filter((b) => b.tabId !== tabId);
     const taken = new Set(others.map((b) => b.name));
-    let name = msg.host || msg.title || `tab ${tabId}`;
-    for (let n = 2; taken.has(name); n++) name = `${msg.host} #${n}`;
+    // Name it after the page, not the chat frame (often a vendor's domain).
+    const host = sender.tab?.url ? new URL(sender.tab.url).hostname.replace(/^www\./, '') : msg.host;
+    const base = host || sender.tab?.title || `tab ${tabId}`;
+    let name = base;
+    for (let n = 2; taken.has(name); n++) name = `${base} #${n}`;
     bots = [...others, { id: `${tabId}:${frameId}`, name, tabId, frameId }];
     statusEl.textContent = `Added ${name}.`;
     renderBots();
