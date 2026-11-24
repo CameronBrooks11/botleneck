@@ -1,0 +1,15 @@
+<!doctype html>
+<title>Burrito Barn Support</title>
+<h1>Burrito Barn</h1>
+<div id="log"></div>
+<input id="input" placeholder="Ask us anything" />
+<script>
+  window.BOT = {
+    name: 'Burrito Barn',
+    replies: [
+      () => 'Our Volcano Burrito is a fan favourite. Can I interest you in extra hot sauce?',
+      (q) => `Are you asking about our hot sauce? You mentioned "${q.split(' ').slice(0, 4).join(' ')}".`,
+    ],
+  };
+</script>
+<script src="bot.js"></script>

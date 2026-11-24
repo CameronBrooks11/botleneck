@@ -1,0 +1,15 @@
+<!doctype html>
+<title>Bolt Depot Help</title>
+<h1>Bolt Depot</h1>
+<div id="log"></div>
+<textarea id="input" placeholder="Type a message"></textarea>
+<script>
+  window.BOT = {
+    name: 'Bolt Depot',
+    replies: [
+      () => 'What are your operating temperature and pressure requirements?',
+      () => 'I recommend a high-temperature food-grade silicone gasket.',
+    ],
+  };
+</script>
+<script src="bot.js"></script>
