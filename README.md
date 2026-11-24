@@ -31,8 +31,8 @@ Temporary Add-on** → `.output/firefox-mv2/manifest.json`.
 1. Open two or more sites with a support chat, and open each chat widget.
 2. Click the botleneck toolbar button to open the control room.
 3. Next to each tab, click **Add**. The extension switches to that tab: click
-   the chat's text box, then the area where replies appear (↑ widens the
-   selection, Esc cancels). It returns to the control room when done.
+   the chat's text box, then **one of the bot's messages** (its greeting will
+   do; Esc cancels). It returns to the control room when done.
 4. Type an opening line, set the turns and delay, and press **Start**.
 
 The opening line goes to the first participant, its reply goes to the second,
@@ -58,17 +58,20 @@ and so on round the table. With one participant it talks to itself.
 | Script injected into added tabs | `entrypoints/relay.ts` |
 | Control room (runs the conversation) | `entrypoints/control/` |
 
-A reply counts as finished once the chat area has gained new text and then
-stayed unchanged for 2 seconds, which absorbs streamed replies. Whatever
-appeared after the message that was sent is the reply.
+The bot message you click teaches the relay what the bot's messages look like
+on that page (element type and classes). After sending, the reply is whatever
+new messages of that kind appear, minus your own message coming back and
+lines that are widget chrome: timestamps, "Sent", "Thinking", avatar
+initials. It counts as finished once it has stayed unchanged for 2 seconds,
+which absorbs streamed replies.
 
 ## Limits
 
-- The reply includes whatever label the widget puts in front of it
-  ("Bolt Depot: …").
-- A typing indicator that sits still for 2 seconds can be read as the reply.
-- Chat widgets inside a cross-origin iframe (Intercom, Zendesk and similar)
-  are injected into but have not been tried against the real thing.
+- If the widget puts the sender's name inside the message itself, it comes
+  along ("Bolt Depot: …").
+- A bot that pauses for more than 2 seconds mid-reply is cut off there.
+- Tried on two real sites so far, one of them with its chat in a frame from
+  another domain. Other widgets may need fixes.
 - Synthetic key presses are ignored by some widgets. Sending falls back to
   submitting the form, then to a nearby "Send" button.
 
