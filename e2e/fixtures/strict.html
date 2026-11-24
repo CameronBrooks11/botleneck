@@ -1,0 +1,35 @@
+<!doctype html>
+<title>Strict Telecom Help</title>
+<h1>Strict Telecom</h1>
+<!-- Like a framework widget: it tracks the message only from trusted input
+     events, Enter sends what it tracked, and the send button only appears
+     once there is something to send. A value set from script is invisible. -->
+<div id="log"><p><b>Strict Telecom:</b> Hi, have billing questions?</p></div>
+<input id="input" placeholder="Type a message" />
+<button id="send" aria-label="Send" hidden>➤</button>
+<script>
+  const log = document.getElementById('log');
+  const input = document.getElementById('input');
+  const sendBtn = document.getElementById('send');
+  let draft = '';
+  input.addEventListener('input', (e) => {
+    if (!e.isTrusted) return;
+    draft = input.value;
+    sendBtn.hidden = !draft.trim();
+  });
+  function send() {
+    if (!draft.trim()) return;
+    const q = draft;
+    draft = '';
+    input.value = '';
+    sendBtn.hidden = true;
+    log.insertAdjacentHTML('beforeend', '<p><b>You:</b> </p>');
+    log.lastElementChild.append(q);
+    setTimeout(() => {
+      log.insertAdjacentHTML('beforeend', '<p><b>Strict Telecom:</b> </p>');
+      log.lastElementChild.append(`I can only help with billing. You said ${q.split(' ').length} words.`);
+    }, 300);
+  }
+  input.addEventListener('keydown', (e) => e.key === 'Enter' && send());
+  sendBtn.addEventListener('click', send);
+</script>

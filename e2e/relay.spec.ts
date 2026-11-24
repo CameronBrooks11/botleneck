@@ -56,3 +56,20 @@ test('two bots talk to each other', async () => {
   // Each bot actually received the other's words.
   await expect(bolts.locator('#log')).toContainText('You: Burrito Barn: Our Volcano Burrito');
 });
+
+test('sends to a widget that only trusts real typing', async () => {
+  const strict = await context.newPage();
+  await strict.goto('http://localhost:4173/strict.html');
+  const control = await context.newPage();
+  await control.goto(`chrome-extension://${extId}/control.html`);
+
+  await addBot(control, strict, 'Strict Telecom Help');
+  await control.locator('#seed').fill('Hello there');
+  await control.locator('#turns').fill('1');
+  await control.getByRole('button', { name: 'Start' }).click();
+  await expect(control.locator('#status')).toHaveText('Ended: turn limit reached.', { timeout: 30_000 });
+  await expect(control.locator('#transcript')).toContainText(
+    'localhost: Strict Telecom: I can only help with billing. You said 2 words.',
+  );
+  await strict.close();
+});
