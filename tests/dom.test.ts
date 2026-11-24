@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
-import { ask, extractReply, findSendButton, submit, typeInto, waitForReply } from '../src/lib/dom';
+import { ask, chatScope, extractReply, findSendButton, submit, typeInto, waitForReply } from '../src/lib/dom';
 
 afterEach(() => {
   document.body.innerHTML = '';
@@ -115,5 +115,31 @@ describe('ask', () => {
     });
     const reply = await ask(input, log, 'gaskets', { settleMs: 30, timeoutMs: 1000 });
     expect(reply).toBe('Bot: you asked about 7 things');
+  });
+});
+
+describe('chatScope', () => {
+  function widget() {
+    document.body.innerHTML = '<div id="w"><div id="log"><p id="hello">Bot: hi</p></div><input id="in"></div>';
+    const log = document.getElementById('log')!;
+    const input = document.getElementById('in') as HTMLInputElement;
+    input.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      input.value = '';
+      setTimeout(() => log.insertAdjacentHTML('beforeend', '<p>Bot: sauce?</p>'), 10);
+    });
+    return { input, bubble: document.getElementById('hello')! };
+  }
+
+  it('widens a picked message bubble to the area that holds the replies', async () => {
+    const { input, bubble } = widget();
+    expect(chatScope(input, bubble).id).toBe('w');
+    expect(await ask(input, chatScope(input, bubble), 'q', { settleMs: 20, timeoutMs: 500 })).toBe('Bot: sauce?');
+  });
+
+  it('keeps a pick that already contains the input', () => {
+    const { input } = widget();
+    const w = document.getElementById('w')!;
+    expect(chatScope(input, w)).toBe(w);
   });
 });

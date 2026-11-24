@@ -124,3 +124,14 @@ export async function ask(input: Editable, transcript: Element, text: string, op
   await submit(input);
   return reply;
 }
+
+/**
+ * Where to watch for replies: the nearest element holding both the input and
+ * the picked reply area. Clicking one message bubble, rather than the list,
+ * is the easy mistake, and a lone bubble never changes.
+ */
+export function chatScope(input: Element, picked: Element): Element {
+  let el: Element | null = picked;
+  while (el && !el.contains(input)) el = el.parentElement;
+  return el ?? picked;
+}

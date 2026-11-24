@@ -2,7 +2,7 @@
 // user picks in becomes the participant; the rest stay idle.
 import { browser } from 'wxt/browser';
 import { defineUnlistedScript } from 'wxt/utils/define-unlisted-script';
-import { ask, type Editable } from '../src/lib/dom';
+import { ask, chatScope, type Editable } from '../src/lib/dom';
 import type { AskResponse, FromRelay, ToRelay } from '../src/lib/messages';
 import { flash, pickElement } from '../src/lib/picker';
 
@@ -33,7 +33,7 @@ export default defineUnlistedScript(() => {
       const t = await pickElement('2/2 — click the area where replies appear (↑ to widen)', ctl.signal, true);
       flash(t);
       input = i as Editable;
-      transcript = t;
+      transcript = chatScope(i, t);
       await tell({ type: 'picked', host: location.hostname.replace(/^www\./, ''), title: document.title });
     } catch {
       // cancelled, or another frame was picked
