@@ -1,5 +1,5 @@
 // Generic chat adapter: drive any chat widget given two elements the user
-// picked — where to type, and where the replies appear. No site knowledge.
+// picked — the text box, and one of the bot's messages. No site knowledge.
 
 export type Editable = HTMLInputElement | HTMLTextAreaElement | HTMLElement;
 
@@ -7,19 +7,95 @@ export function textOf(el: Element): string {
   return ((el as HTMLElement).innerText ?? el.textContent ?? '').trim();
 }
 
+// Lines inside a message that are widget chrome, not something the bot said.
+const JUNK_LINES = [
+  /^\W*$/,
+  /[•·|]\s*\d{1,2}:\d{2}\s*([ap]\.?m\.?)?$/i, // "Virtual Assistant • 1:21 PM"
+  /^(today|yesterday|just now|now)?\s*[•·]?\s*\d{1,2}:\d{2}\s*([ap]\.?m\.?)?$/i,
+  /^(sent|delivered|read|seen|thinking|typing|attach file|send|copy|like|dislike|learn more:?|edited)[.…!\s]*$/i,
+  /\bis typing\b/i,
+  /^[A-Z]{1,3}$/, // avatar initials
+];
+
+/** Message text with timestamps, status words and avatar initials removed. */
+export function cleanText(text: string): string {
+  return text
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => !JUNK_LINES.some((re) => re.test(l)))
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** What a bot message looks like on this page. */
+export interface Signature {
+  tag: string;
+  classes: string[];
+}
+
+// Classes that come and go with state, and so say nothing about the role.
+const STATEFUL = /(^|[-_])(hover|focus|active|selected|visible|hidden|animat\w*|fade\w*|enter\w*|leave\w*|appear\w*|new|last|first|odd|even)($|[-_])/i;
+const stable = (el: Element) => [...el.classList].filter((c) => !STATEFUL.test(c));
+
 /**
- * The text the bot added to the transcript since `before` was captured,
- * minus the echo of what we sent.
+ * The signature of the bot message the user clicked. A click often lands on
+ * a bare <span> or <p> inside the bubble, so prefer the nearest element that
+ * has classes, a few levels up at most.
  */
-export function extractReply(before: string, after: string, sent: string): string {
-  let i = 0;
-  while (i < before.length && i < after.length && before[i] === after[i]) i++;
-  let added = after.slice(i).trim();
-  const echo = sent.trim();
-  const at = echo ? added.indexOf(echo) : -1;
-  // Only strip the echo near the start; the bot quoting us later is content.
-  if (at >= 0 && at < 40) added = added.slice(at + echo.length);
-  return added.replace(/\s+/g, ' ').trim();
+export function signatureOf(el: Element): Signature {
+  let target = el;
+  for (let e: Element | null = el, i = 0; e && i < 4; e = e.parentElement, i++) {
+    if (stable(e).length) {
+      target = e;
+      break;
+    }
+  }
+  return { tag: target.tagName, classes: stable(target) };
+}
+
+/** Same tag, and at least half the classes in common (a "welcome" extra is fine). */
+export function matchesSignature(el: Element, sig: Signature): boolean {
+  if (el.tagName !== sig.tag) return false;
+  const mine = stable(el);
+  if (!sig.classes.length) return mine.length === 0;
+  const shared = sig.classes.filter((c) => mine.includes(c)).length;
+  return shared / new Set([...sig.classes, ...mine]).size >= 0.5;
+}
+
+/** Text of every bot message under `scope`, in order. */
+export function botMessages(scope: Element, sig: Signature): string[] {
+  const out: string[] = [];
+  const walk = (el: Element) => {
+    for (const child of el.children) {
+      if (matchesSignature(child, sig)) {
+        const t = cleanText(textOf(child));
+        if (t) out.push(t);
+      } else walk(child);
+    }
+  };
+  walk(scope);
+  return out;
+}
+
+/** Messages in `after` that were not in `before`, counting duplicates. */
+export function newMessages(before: string[], after: string[]): string[] {
+  const seen = new Map<string, number>();
+  for (const t of before) seen.set(t, (seen.get(t) ?? 0) + 1);
+  return after.filter((t) => {
+    const n = seen.get(t) ?? 0;
+    if (n > 0) seen.set(t, n - 1);
+    return n === 0;
+  });
+}
+
+const norm = (t: string) => t.toLowerCase().replace(/\s+/g, ' ').trim();
+
+/** Our own message coming back, possibly with a "You:" style label. */
+export function isEcho(text: string, sent: string): boolean {
+  const t = norm(text);
+  const s = norm(sent);
+  return t === s || (s.length >= 4 && t.includes(s) && t.length <= s.length + 30);
 }
 
 function isFormField(el: Element): el is HTMLInputElement | HTMLTextAreaElement {
@@ -125,18 +201,17 @@ export interface WaitOptions {
 }
 
 /**
- * Resolve with the reply once the transcript has gained new text and then
- * stayed unchanged for `settleMs` (which absorbs streamed replies). Resolves
- * '' on timeout.
+ * Resolve with `read()` once it is non-empty and has stayed unchanged for
+ * `settleMs`, which absorbs streamed replies. Resolves '' on timeout.
  */
 export function waitForReply(
-  transcript: Element,
-  before: string,
-  sent: string,
+  scope: Element,
+  read: () => string,
   { settleMs = 2000, timeoutMs = 60_000 }: WaitOptions = {},
 ): Promise<string> {
   return new Promise((resolve) => {
     let settle: ReturnType<typeof setTimeout> | undefined;
+    let last = '';
     const finish = (reply: string) => {
       observer.disconnect();
       clearTimeout(settle);
@@ -144,21 +219,37 @@ export function waitForReply(
       resolve(reply);
     };
     const check = () => {
-      const reply = extractReply(before, textOf(transcript), sent);
+      const reply = read();
+      if (reply === last) return;
+      last = reply;
       clearTimeout(settle);
-      if (reply) settle = setTimeout(() => finish(extractReply(before, textOf(transcript), sent)), settleMs);
+      if (reply) settle = setTimeout(() => finish(read()), settleMs);
     };
     const observer = new MutationObserver(check);
-    observer.observe(transcript, { childList: true, subtree: true, characterData: true });
+    observer.observe(scope, { childList: true, subtree: true, characterData: true });
     const timeout = setTimeout(() => finish(''), timeoutMs);
     check();
   });
 }
 
+/** Reads the bot's new messages since the moment it was created. */
+export function replyReader(scope: Element, sig: Signature, sent: string): () => string {
+  const before = botMessages(scope, sig);
+  return () =>
+    newMessages(before, botMessages(scope, sig))
+      .filter((t) => !isEcho(t, sent))
+      .join(' ');
+}
+
 /** Type `text`, send it, and wait for the bot's answer. */
-export async function ask(input: Editable, transcript: Element, text: string, opts?: WaitOptions): Promise<string> {
-  const before = textOf(transcript);
-  const reply = waitForReply(transcript, before, text, opts);
+export async function ask(
+  input: Editable,
+  scope: Element,
+  sig: Signature,
+  text: string,
+  opts?: WaitOptions,
+): Promise<string> {
+  const reply = waitForReply(scope, replyReader(scope, sig, text), opts);
   typeInto(input, text);
   if (!(await submit(input))) throw new Error('typed the message but the chat did not send it');
   return reply;
@@ -166,8 +257,7 @@ export async function ask(input: Editable, transcript: Element, text: string, op
 
 /**
  * Where to watch for replies: the nearest element holding both the input and
- * the picked reply area. Clicking one message bubble, rather than the list,
- * is the easy mistake, and a lone bubble never changes.
+ * the picked bot message.
  */
 export function chatScope(input: Element, picked: Element): Element {
   let el: Element | null = picked;

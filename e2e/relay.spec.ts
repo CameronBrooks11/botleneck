@@ -18,12 +18,12 @@ test.beforeAll(async () => {
 
 test.afterAll(() => context.close());
 
-async function addBot(control: Page, bot: Page, title: string) {
+async function addBot(control: Page, bot: Page, title: string, botMessage = '.msg-bot') {
   await control.getByRole('listitem').filter({ hasText: title }).getByRole('button').click();
   await expect(bot.getByText('botleneck: 1/2')).toBeVisible();
   await bot.locator('#input').click();
   await expect(bot.getByText('botleneck: 2/2')).toBeVisible();
-  await bot.locator('#log').click();
+  await bot.locator(botMessage).first().click();
 }
 
 test('two bots talk to each other', async () => {
@@ -48,13 +48,15 @@ test('two bots talk to each other', async () => {
   const lines = await control.locator('#transcript li').allInnerTexts();
   expect(lines).toEqual([
     'you: Hello there, what do you sell?',
-    'localhost: Burrito Barn: Our Volcano Burrito is a fan favourite. Can I interest you in extra hot sauce?',
-    '127.0.0.1: Bolt Depot: What are your operating temperature and pressure requirements?',
-    'localhost: Burrito Barn: Are you asking about our hot sauce? You mentioned "Bolt Depot: What are".',
-    '127.0.0.1: Bolt Depot: I recommend a high-temperature food-grade silicone gasket.',
+    'localhost: Our Volcano Burrito is a fan favourite. Can I interest you in extra hot sauce?',
+    '127.0.0.1: What are your operating temperature and pressure requirements?',
+    'localhost: Are you asking about our hot sauce? You mentioned "What are your operating".',
+    '127.0.0.1: I recommend a high-temperature food-grade silicone gasket.',
   ]);
   // Each bot actually received the other's words.
-  await expect(bolts.locator('#log')).toContainText('You: Burrito Barn: Our Volcano Burrito');
+  await expect(bolts.locator('.msg-user').first()).toHaveText(
+    'Our Volcano Burrito is a fan favourite. Can I interest you in extra hot sauce?',
+  );
 });
 
 test('sends to a widget that only trusts real typing', async () => {
@@ -63,7 +65,7 @@ test('sends to a widget that only trusts real typing', async () => {
   const control = await context.newPage();
   await control.goto(`chrome-extension://${extId}/control.html`);
 
-  await addBot(control, strict, 'Strict Telecom Help');
+  await addBot(control, strict, 'Strict Telecom Help', '#log p');
   await control.locator('#seed').fill('Hello there');
   await control.locator('#turns').fill('1');
   await control.getByRole('button', { name: 'Start' }).click();
