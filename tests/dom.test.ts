@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
-import { ask, chatScope, extractReply, findSendButton, submit, typeInto, waitForReply } from '../src/lib/dom';
+import { ask, chatScope, extractReply, findSendButton, resolveEditable, submit, typeInto, waitForReply } from '../src/lib/dom';
 
 afterEach(() => {
   document.body.innerHTML = '';
@@ -141,5 +141,34 @@ describe('chatScope', () => {
     const { input } = widget();
     const w = document.getElementById('w')!;
     expect(chatScope(input, w)).toBe(w);
+  });
+});
+
+describe('resolveEditable', () => {
+  it('finds the text box inside a clicked wrapper', () => {
+    document.body.innerHTML = '<div id="wrap"><span>icon</span><textarea id="t"></textarea></div>';
+    expect(resolveEditable(document.getElementById('wrap')!)?.id).toBe('t');
+  });
+
+  it('looks inside open shadow roots', () => {
+    const host = document.createElement('chat-box');
+    host.attachShadow({ mode: 'open' }).innerHTML = '<div><input id="deep"></div>';
+    document.body.append(host);
+    expect(resolveEditable(host)?.id).toBe('deep');
+  });
+
+  it('rejects something with no text box', () => {
+    document.body.innerHTML = '<p id="p">hello</p><input type="hidden">';
+    expect(resolveEditable(document.getElementById('p')!)).toBeNull();
+  });
+});
+
+describe('ask when the chat will not send', () => {
+  it('fails fast instead of waiting for a reply', async () => {
+    document.body.innerHTML = '<div id="log"></div><input id="in">';
+    const input = document.getElementById('in') as HTMLInputElement;
+    await expect(
+      ask(input, document.getElementById('log')!, 'hi', { settleMs: 10, timeoutMs: 5000 }),
+    ).rejects.toThrow('did not send');
   });
 });

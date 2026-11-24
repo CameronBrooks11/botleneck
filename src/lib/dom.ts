@@ -30,8 +30,41 @@ function valueOf(el: Editable): string {
   return isFormField(el) ? el.value : (el.textContent ?? '');
 }
 
+const EDITABLE = 'textarea, input:not([type=hidden]):not([type=button]):not([type=submit]), [contenteditable=""], [contenteditable="true"]';
+
+function isEditable(el: Element): boolean {
+  return isFormField(el) || (el as HTMLElement).isContentEditable === true;
+}
+
+/**
+ * The text box itself, given what was clicked: the element, or the first
+ * text box inside it, looking through open shadow roots (web-component chat
+ * widgets put their input there).
+ */
+export function resolveEditable(el: Element): Editable | null {
+  if (isEditable(el)) return el as Editable;
+  const roots: ParentNode[] = [el];
+  if (el.shadowRoot) roots.push(el.shadowRoot);
+  for (let i = 0; i < roots.length; i++) {
+    const found = roots[i]!.querySelector(EDITABLE);
+    if (found) return found as Editable;
+    for (const child of roots[i]!.querySelectorAll('*')) if (child.shadowRoot) roots.push(child.shadowRoot);
+  }
+  return null;
+}
+
 export function typeInto(el: Editable, text: string): void {
   el.focus();
+  // insertText goes through the browser's own editing path, so the page sees
+  // trusted input events, as with paste or autofill. Widgets that only track
+  // real typing ignore anything less.
+  if (isFormField(el)) el.select();
+  else getSelection()?.selectAllChildren(el);
+  try {
+    if (document.execCommand?.('insertText', false, text) && valueOf(el).trim() === text.trim()) return;
+  } catch {
+    // not supported here; fall through
+  }
   if (isFormField(el)) {
     // Go through the prototype setter so React-style controlled inputs notice.
     const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
@@ -52,8 +85,9 @@ function pressEnter(el: Element): void {
 
 /** A send button near the input, if there is one. */
 export function findSendButton(el: Element): HTMLElement | null {
-  let scope: Element | null = el.parentElement;
-  for (let depth = 0; scope && depth < 5; depth++, scope = scope.parentElement) {
+  const up = (e: Element) => e.parentElement ?? ((e.getRootNode() as ShadowRoot).host || null);
+  let scope: Element | null = up(el);
+  for (let depth = 0; scope && depth < 5; depth++, scope = up(scope)) {
     for (const b of scope.querySelectorAll<HTMLElement>('button, [role="button"], input[type="submit"]')) {
       const label = `${b.getAttribute('aria-label') ?? ''} ${b.getAttribute('title') ?? ''} ${b.textContent ?? ''} ${(b as HTMLInputElement).value ?? ''}`;
       if (b.getAttribute('type') === 'submit' || /send|submit/i.test(label)) return b;
@@ -62,21 +96,26 @@ export function findSendButton(el: Element): HTMLElement | null {
   return null;
 }
 
-/** Submit what is in `el`: Enter first, then the form, then a send button. */
-export async function submit(el: Editable, settle = 300): Promise<void> {
+/**
+ * Submit what is in `el`: Enter first, then the form, then a send button.
+ * Resolves whether the box emptied or changed, i.e. the widget took it.
+ */
+export async function submit(el: Editable, settle = 300): Promise<boolean> {
   const typed = valueOf(el);
   const sent = () => valueOf(el) !== typed || !valueOf(el).trim();
   const wait = () => new Promise((r) => setTimeout(r, settle));
   pressEnter(el);
   await wait();
-  if (sent()) return;
+  if (sent()) return true;
   const form = el.closest('form');
   if (form) {
     form.requestSubmit();
     await wait();
-    if (sent()) return;
+    if (sent()) return true;
   }
   findSendButton(el)?.click();
+  await wait();
+  return sent();
 }
 
 export interface WaitOptions {
@@ -121,7 +160,7 @@ export async function ask(input: Editable, transcript: Element, text: string, op
   const before = textOf(transcript);
   const reply = waitForReply(transcript, before, text, opts);
   typeInto(input, text);
-  await submit(input);
+  if (!(await submit(input))) throw new Error('typed the message but the chat did not send it');
   return reply;
 }
 

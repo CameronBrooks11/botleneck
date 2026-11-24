@@ -2,7 +2,7 @@
 // user picks in becomes the participant; the rest stay idle.
 import { browser } from 'wxt/browser';
 import { defineUnlistedScript } from 'wxt/utils/define-unlisted-script';
-import { ask, chatScope, type Editable } from '../src/lib/dom';
+import { ask, chatScope, resolveEditable, type Editable } from '../src/lib/dom';
 import type { AskResponse, FromRelay, ToRelay } from '../src/lib/messages';
 import { flash, pickElement } from '../src/lib/picker';
 
@@ -27,12 +27,17 @@ export default defineUnlistedScript(() => {
     picking?.abort();
     const ctl = (picking = new AbortController());
     try {
-      const i = await pickElement('1/2 — click the chat input box', ctl.signal, isTop);
+      let i: Editable | null = null;
+      let prompt = '1/2 — click the chat input box';
+      while (!i) {
+        i = resolveEditable(await pickElement(prompt, ctl.signal, isTop));
+        prompt = 'That is not a text box. 1/2 — click where you would type';
+      }
       flash(i);
       await tell({ type: 'pickStarted', token });
       const t = await pickElement('2/2 — click the area where replies appear (↑ to widen)', ctl.signal, true);
       flash(t);
-      input = i as Editable;
+      input = i;
       transcript = chatScope(i, t);
       await tell({ type: 'picked', host: location.hostname.replace(/^www\./, ''), title: document.title });
     } catch {
