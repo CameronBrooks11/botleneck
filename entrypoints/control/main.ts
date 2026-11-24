@@ -112,7 +112,7 @@ function showLine(line: Line) {
   if (transcriptEl.querySelector('.empty')) transcriptEl.replaceChildren();
   const who = document.createElement('b');
   who.textContent = `${line.speaker}:`;
-  transcriptEl.append(li(who, line.text));
+  transcriptEl.append(li(who, ' ', line.text));
 }
 
 startBtn.onclick = async () => {
